@@ -1,4 +1,4 @@
-# Vehicle Dealership Management System Inventory Microservice.
+# Vehicle Dealership Management System Inventory Microservice
 
 [![Go](https://img.shields.io/badge/go-00ADD8.svg?style=for-the-badge&logo=go&logoColor=white)](https://go.dev/)
 
