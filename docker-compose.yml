@@ -1,0 +1,25 @@
+services:
+  app:
+    image: cosmtrek/air
+    working_dir: /app
+    ports:
+      - 80:3000
+    env_file: ".env"
+    volumes:
+      - ./:/app
+    depends_on:
+      - mysql
+  mysql:
+    image: mariadb
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+      MYSQL_DATABASE: ${MYSQL_DATABASE}
+      MYSQL_USER: ${MYSQL_USER}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD}
+    ports:
+      - "3306:3306"
+    volumes:
+      - mysql_data:/var/lib/mysql
+
+volumes:
+  mysql_data:
