@@ -1,35 +1,53 @@
-# Vehicle Dealership Management System Inventory Microservice
+# Project vdms_inventory
 
-[![Go](https://img.shields.io/badge/go-00ADD8.svg?style=for-the-badge&logo=go&logoColor=white)](https://go.dev/)
+One Paragraph of project description goes here
 
-Vehicle inventory microservice for vehicle dealership management.
+## Getting Started
 
-## Development
+These instructions will get you a copy of the project up and running on your local machine for development and testing purposes. See deployment for notes on how to deploy the project on a live system.
 
-To get started, clone this repository and follow these steps to run the Go application in your local environment.
+## MakeFile
 
-Start all of the Docker containers in the background, you may start in "detached" mode:
-
+Run build make command with tests
 ```bash
-docker-compose up -d
+make all
 ```
 
-The application is executing within a Docker container and is isolated from your local computer. To run various commands against your application use:
-
+Build the application
 ```bash
-docker-compose exec app {CMD}
+make build
 ```
 
-## Database Migrations
-
-Run all of your outstanding migrations:
-
+Run the application
 ```bash
-make migrate action=up
+make run
+```
+Create DB container
+```bash
+make docker-run
 ```
 
-Roll back the latest migration operation, you may use the rollback Artisan command. This command rolls back the last "batch" of migrations, which may include multiple migration files:
-
+Shutdown DB Container
 ```bash
-make migrate action=down
+make docker-down
+```
+
+DB Integrations Test:
+```bash
+make itest
+```
+
+Live reload the application:
+```bash
+make watch
+```
+
+Run the test suite:
+```bash
+make test
+```
+
+Clean up binary from the last build:
+```bash
+make clean
 ```

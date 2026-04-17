@@ -1,11 +1,21 @@
-FROM golang:1.22.1
+FROM golang:1.26.2-alpine AS build
 
 WORKDIR /app
 
-ADD . .
+COPY go.mod go.sum ./
 
-RUN make build
+RUN go mod download
 
-EXPOSE 3000
+COPY . .
 
-CMD ["./build"]
+RUN go build -o main cmd/api/main.go
+
+FROM alpine:3.20.1 AS prod
+
+WORKDIR /app
+
+COPY --from=build /app/main /app/main
+
+EXPOSE ${PORT}
+
+CMD ["./main"]
