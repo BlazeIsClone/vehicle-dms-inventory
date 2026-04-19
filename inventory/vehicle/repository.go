@@ -23,8 +23,9 @@ func NewPgSQLVehicleRepo(db *sql.DB) *PgSQLVehicleRepo {
 }
 
 func (repo *PgSQLVehicleRepo) GetAll() ([]Vehicle, error) {
-	rows, err := repo.db.Query("SELECT id, name, description, created_at, updated_at FROM vehicles ORDER BY id")
+	const query = `SELECT id, name, description, created_at, updated_at FROM vehicles ORDER BY id`
 
+	rows, err := repo.db.Query(query)
 	if err != nil {
 		return nil, fmt.Errorf("query vehicles: %w", err)
 	}
@@ -38,6 +39,7 @@ func (repo *PgSQLVehicleRepo) GetAll() ([]Vehicle, error) {
 		if err := rows.Scan(&v.ID, &v.Name, &v.Description, &v.CreatedAt, &v.UpdatedAt); err != nil {
 			return nil, fmt.Errorf("scan vehicle: %w", err)
 		}
+
 		vehicles = append(vehicles, v)
 	}
 
@@ -52,16 +54,13 @@ func (repo *PgSQLVehicleRepo) Create(vehicle *Vehicle) error {
 }
 
 func (repo *PgSQLVehicleRepo) FindByID(id int) (*Vehicle, error) {
+	const query = `SELECT id, name, description, created_at, updated_at FROM vehicles WHERE id = $1`
 	var vehicle Vehicle
 
-	err := repo.db.QueryRow(
-		"SELECT id, name, description, created_at, updated_at FROM vehicles WHERE id = $1", id,
-	).Scan(&vehicle.ID, &vehicle.Name, &vehicle.Description, &vehicle.CreatedAt, &vehicle.UpdatedAt)
-
+	err := repo.db.QueryRow(query, id).Scan(&vehicle.ID, &vehicle.Name, &vehicle.Description, &vehicle.CreatedAt, &vehicle.UpdatedAt)
 	if errors.Is(err, sql.ErrNoRows) {
 		return nil, ErrNotFound
 	}
-
 	if err != nil {
 		return nil, fmt.Errorf("find vehicle: %w", err)
 	}
@@ -73,11 +72,9 @@ func (repo *PgSQLVehicleRepo) UpdateByID(id int, vehicle *Vehicle) error {
 	const query = `UPDATE vehicles SET name=$1, description=$2, updated_at=NOW() WHERE id=$3 RETURNING updated_at`
 
 	err := repo.db.QueryRow(query, vehicle.Name, vehicle.Description, id).Scan(&vehicle.UpdatedAt)
-
 	if errors.Is(err, sql.ErrNoRows) {
 		return ErrNotFound
 	}
-
 	if err != nil {
 		return fmt.Errorf("update vehicle: %w", err)
 	}
@@ -88,14 +85,13 @@ func (repo *PgSQLVehicleRepo) UpdateByID(id int, vehicle *Vehicle) error {
 }
 
 func (repo *PgSQLVehicleRepo) DeleteByID(id int) error {
-	res, err := repo.db.Exec("DELETE FROM vehicles WHERE id = $1", id)
+	const query = `DELETE FROM vehicles WHERE id = $1`
 
+	res, err := repo.db.Exec(query, id)
 	if err != nil {
 		return fmt.Errorf("delete vehicle: %w", err)
 	}
-
 	n, _ := res.RowsAffected()
-
 	if n == 0 {
 		return ErrNotFound
 	}
