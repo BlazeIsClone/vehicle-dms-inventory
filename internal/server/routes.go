@@ -5,8 +5,7 @@ import (
 	"log"
 	"net/http"
 
-	vehiclesvc "github.com/blazeisclone/vehicle-dms-inventory/internal/service/vehicle"
-	vehicle "github.com/blazeisclone/vehicle-dms-inventory/inventory/vehicle"
+	"github.com/blazeisclone/vehicle-dms-inventory/inventory/vehicle"
 )
 
 func (s *Server) RegisterRoutes() http.Handler {
@@ -14,7 +13,7 @@ func (s *Server) RegisterRoutes() http.Handler {
 
 	mux.HandleFunc("/health", s.healthHandler)
 
-	vehicle.Routes(mux, vehiclesvc.NewVehicleSvc(vehicle.NewPgSQLVehicleRepo(s.db.DB())))
+	vehicle.Routes(mux, vehicle.NewVehicleSvc(vehicle.NewPgSQLVehicleRepo(s.db.DB())))
 
 	return s.corsMiddleware(mux)
 }

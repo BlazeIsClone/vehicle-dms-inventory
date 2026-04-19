@@ -5,15 +5,16 @@ import (
 	"errors"
 	"net/http"
 	"strconv"
+	"strings"
 
 	"github.com/blazeisclone/vehicle-dms-inventory/pkg/strutils"
 )
 
 type VehicleService interface {
-	Create(name, description string) (*Vehicle, error)
+	Create(cmd CreateVehicleCommand) (*Vehicle, error)
 	GetAll() ([]Vehicle, error)
 	FindByID(id int) (*Vehicle, error)
-	Update(id int, name, description string) (*Vehicle, error)
+	Update(id int, cmd UpdateVehicleCommand) (*Vehicle, error)
 	Delete(id int) error
 }
 
@@ -37,37 +38,43 @@ func Routes(mux *http.ServeMux, svc VehicleService) {
 
 func (h *Handler) Index(w http.ResponseWriter, r *http.Request) {
 	vehicles, err := h.svc.GetAll()
+
 	if err != nil {
 		jsonError(w, "failed to fetch vehicles", http.StatusInternalServerError)
 		return
 	}
+
 	if vehicles == nil {
 		vehicles = []Vehicle{}
 	}
-	jsonResponse(w, vehicles, http.StatusOK)
-}
 
-type vehicleRequest struct {
-	Name        string `json:"name"`
-	Description string `json:"description"`
+	jsonResponse(w, vehicles, http.StatusOK)
 }
 
 func (h *Handler) Store(w http.ResponseWriter, r *http.Request) {
 	var req vehicleRequest
+
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		jsonError(w, "invalid request body", http.StatusBadRequest)
 		return
 	}
-	if req.Name == "" {
-		jsonError(w, "name is required", http.StatusUnprocessableEntity)
+
+	if errs := req.validate(); errs.HasErrors() {
+		jsonValidationErrors(w, errs)
 		return
 	}
-	v, err := h.svc.Create(req.Name, req.Description)
+
+	vehicle, err := h.svc.Create(CreateVehicleCommand{
+		Name:        strings.TrimSpace(req.Name),
+		Description: strings.TrimSpace(req.Description),
+	})
+
 	if err != nil {
 		jsonError(w, "failed to create vehicle", http.StatusInternalServerError)
 		return
 	}
-	jsonResponse(w, v, http.StatusCreated)
+
+	jsonResponse(w, vehicle, http.StatusCreated)
 }
 
 func (h *Handler) Show(w http.ResponseWriter, r *http.Request) {
@@ -75,76 +82,102 @@ func (h *Handler) Show(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	v, err := h.svc.FindByID(id)
+
+	vehicle, err := h.svc.FindByID(id)
+
 	if errors.Is(err, ErrNotFound) {
 		jsonError(w, "vehicle not found", http.StatusNotFound)
 		return
 	}
+
 	if err != nil {
 		jsonError(w, "failed to fetch vehicle", http.StatusInternalServerError)
 		return
 	}
-	jsonResponse(w, v, http.StatusOK)
+
+	jsonResponse(w, vehicle, http.StatusOK)
 }
 
 func (h *Handler) Update(w http.ResponseWriter, r *http.Request) {
 	id, ok := pathID(w, r)
+
 	if !ok {
 		return
 	}
+
 	var req vehicleRequest
+
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		jsonError(w, "invalid request body", http.StatusBadRequest)
 		return
 	}
-	if req.Name == "" {
-		jsonError(w, "name is required", http.StatusUnprocessableEntity)
+
+	if errs := req.validate(); errs.HasErrors() {
+		jsonValidationErrors(w, errs)
 		return
 	}
-	v, err := h.svc.Update(id, req.Name, req.Description)
+
+	vehicle, err := h.svc.Update(id, UpdateVehicleCommand{
+		Name:        strings.TrimSpace(req.Name),
+		Description: strings.TrimSpace(req.Description),
+	})
+
 	if errors.Is(err, ErrNotFound) {
 		jsonError(w, "vehicle not found", http.StatusNotFound)
 		return
 	}
+
 	if err != nil {
 		jsonError(w, "failed to update vehicle", http.StatusInternalServerError)
 		return
 	}
-	jsonResponse(w, v, http.StatusOK)
+
+	jsonResponse(w, vehicle, http.StatusOK)
 }
 
 func (h *Handler) Destroy(w http.ResponseWriter, r *http.Request) {
 	id, ok := pathID(w, r)
+
 	if !ok {
 		return
 	}
+
 	err := h.svc.Delete(id)
+
 	if errors.Is(err, ErrNotFound) {
 		jsonError(w, "vehicle not found", http.StatusNotFound)
 		return
 	}
+
 	if err != nil {
 		jsonError(w, "failed to delete vehicle", http.StatusInternalServerError)
 		return
 	}
+
 	w.WriteHeader(http.StatusNoContent)
 }
 
 func pathID(w http.ResponseWriter, r *http.Request) (int, bool) {
 	id, err := strconv.Atoi(r.PathValue("id"))
+
 	if err != nil {
 		jsonError(w, "invalid id", http.StatusBadRequest)
 		return 0, false
 	}
+
 	return id, true
 }
 
 func jsonResponse(w http.ResponseWriter, data any, status int) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(status)
-	json.NewEncoder(w).Encode(data) //nolint:errcheck
+	json.NewEncoder(w).Encode(data)
 }
 
 func jsonError(w http.ResponseWriter, msg string, status int) {
 	jsonResponse(w, map[string]string{"error": msg}, status)
+}
+
+func jsonValidationErrors(w http.ResponseWriter, errs ValidationErrors) {
+	jsonResponse(w, map[string]ValidationErrors{"errors": errs}, http.StatusUnprocessableEntity)
 }

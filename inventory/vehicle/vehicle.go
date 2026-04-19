@@ -13,4 +13,14 @@ type Vehicle struct {
 	UpdatedAt   time.Time
 }
 
+type CreateVehicleCommand struct {
+	Name        string `json:"name"`
+	Description string `json:"description"`
+}
+
+type UpdateVehicleCommand struct {
+	Name        string `json:"name"`
+	Description string `json:"description"`
+}
+
 var ErrNotFound = errors.New("vehicle not found")
