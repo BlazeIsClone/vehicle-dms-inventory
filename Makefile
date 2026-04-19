@@ -34,4 +34,7 @@ clean:
 watch:
 	@bash scripts/watch.sh
 
+migrate:
+	@bash scripts/migrate.sh $(action)
+
 .PHONY: all build run test clean watch docker-run docker-down itest
