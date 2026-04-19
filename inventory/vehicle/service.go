@@ -13,13 +13,13 @@ func NewVehicleSvc(repo VehicleRepo) *Service {
 }
 
 func (svc *Service) Create(cmd CreateVehicleCommand) (*Vehicle, error) {
-	v := &Vehicle{Name: cmd.Name, Description: cmd.Description}
+	vehicle := &Vehicle{Name: cmd.Name, Description: cmd.Description}
 
-	if err := svc.repo.Create(v); err != nil {
+	if err := svc.repo.Create(vehicle); err != nil {
 		return nil, fmt.Errorf("create vehicle: %w", err)
 	}
 
-	return v, nil
+	return vehicle, nil
 }
 
 func (svc *Service) GetAll() ([]Vehicle, error) {
