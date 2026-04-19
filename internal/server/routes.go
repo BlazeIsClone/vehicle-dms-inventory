@@ -5,19 +5,16 @@ import (
 	"log"
 	"net/http"
 
-	vehicledomain "github.com/blazeisclone/vehicle-dms-inventory/inventory/vehicle"
-	vehicleservice "github.com/blazeisclone/vehicle-dms-inventory/internal/service/vehicle"
+	vehiclesvc "github.com/blazeisclone/vehicle-dms-inventory/internal/service/vehicle"
+	vehicle "github.com/blazeisclone/vehicle-dms-inventory/inventory/vehicle"
 )
 
 func (s *Server) RegisterRoutes() http.Handler {
 	mux := http.NewServeMux()
 
-	mux.HandleFunc("/", s.HelloWorldHandler)
 	mux.HandleFunc("/health", s.healthHandler)
 
-	repo := vehicledomain.NewPostgresVehicleRepository(s.db.DB())
-	svc := vehicleservice.NewVehicleService(repo)
-	vehicledomain.Routes(mux, svc)
+	vehicle.Routes(mux, vehiclesvc.NewVehicleSvc(vehicle.NewPgSQLVehicleRepo(s.db.DB())))
 
 	return s.corsMiddleware(mux)
 }
@@ -36,19 +33,6 @@ func (s *Server) corsMiddleware(next http.Handler) http.Handler {
 
 		next.ServeHTTP(w, r)
 	})
-}
-
-func (s *Server) HelloWorldHandler(w http.ResponseWriter, r *http.Request) {
-	resp := map[string]string{"message": "Hello World"}
-	jsonResp, err := json.Marshal(resp)
-	if err != nil {
-		http.Error(w, "Failed to marshal response", http.StatusInternalServerError)
-		return
-	}
-	w.Header().Set("Content-Type", "application/json")
-	if _, err := w.Write(jsonResp); err != nil {
-		log.Printf("Failed to write response: %v", err)
-	}
 }
 
 func (s *Server) healthHandler(w http.ResponseWriter, r *http.Request) {

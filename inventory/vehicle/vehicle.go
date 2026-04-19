@@ -1,6 +1,9 @@
 package vehicle
 
-import "time"
+import (
+	"errors"
+	"time"
+)
 
 type Vehicle struct {
 	ID          int
@@ -9,3 +12,5 @@ type Vehicle struct {
 	CreatedAt   time.Time
 	UpdatedAt   time.Time
 }
+
+var ErrNotFound = errors.New("vehicle not found")

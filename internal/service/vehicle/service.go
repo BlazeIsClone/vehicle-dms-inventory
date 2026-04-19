@@ -7,10 +7,10 @@ import (
 )
 
 type Service struct {
-	repo vehicle.VehicleRepository
+	repo vehicle.VehicleRepo
 }
 
-func NewVehicleService(repo vehicle.VehicleRepository) *Service {
+func NewVehicleSvc(repo vehicle.VehicleRepo) *Service {
 	return &Service{repo: repo}
 }
 

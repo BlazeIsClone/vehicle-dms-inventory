@@ -6,9 +6,7 @@ import (
 	"fmt"
 )
 
-var ErrNotFound = errors.New("vehicle not found")
-
-type VehicleRepository interface {
+type VehicleRepo interface {
 	Create(vehicle *Vehicle) error
 	GetAll() ([]Vehicle, error)
 	FindByID(id int) (*Vehicle, error)
@@ -16,15 +14,15 @@ type VehicleRepository interface {
 	DeleteByID(id int) error
 }
 
-type PostgresVehicleRepository struct {
+type PgSQLVehicleRepo struct {
 	db *sql.DB
 }
 
-func NewPostgresVehicleRepository(db *sql.DB) *PostgresVehicleRepository {
-	return &PostgresVehicleRepository{db: db}
+func NewPgSQLVehicleRepo(db *sql.DB) *PgSQLVehicleRepo {
+	return &PgSQLVehicleRepo{db: db}
 }
 
-func (r *PostgresVehicleRepository) GetAll() ([]Vehicle, error) {
+func (r *PgSQLVehicleRepo) GetAll() ([]Vehicle, error) {
 	rows, err := r.db.Query("SELECT id, name, description, created_at, updated_at FROM vehicles ORDER BY id")
 	if err != nil {
 		return nil, fmt.Errorf("query vehicles: %w", err)
@@ -42,14 +40,13 @@ func (r *PostgresVehicleRepository) GetAll() ([]Vehicle, error) {
 	return vehicles, rows.Err()
 }
 
-func (r *PostgresVehicleRepository) Create(vehicle *Vehicle) error {
-	const q = `INSERT INTO vehicles (name, description) VALUES ($1, $2)
-		RETURNING id, created_at, updated_at`
+func (r *PgSQLVehicleRepo) Create(vehicle *Vehicle) error {
+	const q = `INSERT INTO vehicles (name, description) VALUES ($1, $2) RETURNING id, created_at, updated_at`
 	return r.db.QueryRow(q, vehicle.Name, vehicle.Description).
 		Scan(&vehicle.ID, &vehicle.CreatedAt, &vehicle.UpdatedAt)
 }
 
-func (r *PostgresVehicleRepository) FindByID(id int) (*Vehicle, error) {
+func (r *PgSQLVehicleRepo) FindByID(id int) (*Vehicle, error) {
 	var v Vehicle
 	err := r.db.QueryRow(
 		"SELECT id, name, description, created_at, updated_at FROM vehicles WHERE id = $1", id,
@@ -63,9 +60,8 @@ func (r *PostgresVehicleRepository) FindByID(id int) (*Vehicle, error) {
 	return &v, nil
 }
 
-func (r *PostgresVehicleRepository) UpdateByID(id int, vehicle *Vehicle) error {
-	const q = `UPDATE vehicles SET name=$1, description=$2, updated_at=NOW()
-		WHERE id=$3 RETURNING updated_at`
+func (r *PgSQLVehicleRepo) UpdateByID(id int, vehicle *Vehicle) error {
+	const q = `UPDATE vehicles SET name=$1, description=$2, updated_at=NOW() WHERE id=$3 RETURNING updated_at`
 	err := r.db.QueryRow(q, vehicle.Name, vehicle.Description, id).Scan(&vehicle.UpdatedAt)
 	if errors.Is(err, sql.ErrNoRows) {
 		return ErrNotFound
@@ -77,7 +73,7 @@ func (r *PostgresVehicleRepository) UpdateByID(id int, vehicle *Vehicle) error {
 	return nil
 }
 
-func (r *PostgresVehicleRepository) DeleteByID(id int) error {
+func (r *PgSQLVehicleRepo) DeleteByID(id int) error {
 	res, err := r.db.Exec("DELETE FROM vehicles WHERE id = $1", id)
 	if err != nil {
 		return fmt.Errorf("delete vehicle: %w", err)
