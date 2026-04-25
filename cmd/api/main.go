@@ -9,22 +9,22 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/joho/godotenv"
+
+	snspublisher "github.com/blazeisclone/vehicle-dms-inventory/infra/sns"
+	"github.com/blazeisclone/vehicle-dms-inventory/internal/awscloud"
 	"github.com/blazeisclone/vehicle-dms-inventory/internal/server"
 )
 
 func gracefulShutdown(apiServer *http.Server, done chan bool) {
-	// Create context that listens for the interrupt signal from the OS.
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer stop()
 
-	// Listen for the interrupt signal.
 	<-ctx.Done()
 
 	log.Println("shutting down gracefully, press Ctrl+C again to force")
-	stop() // Allow Ctrl+C to force shutdown
+	stop()
 
-	// The context is used to inform the server it has 5 seconds to finish
-	// the request it is currently handling
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 	if err := apiServer.Shutdown(ctx); err != nil {
@@ -33,26 +33,37 @@ func gracefulShutdown(apiServer *http.Server, done chan bool) {
 
 	log.Println("Server exiting")
 
-	// Notify the main goroutine that the shutdown is complete
 	done <- true
 }
 
 func main() {
+	if err := godotenv.Load(); err != nil {
+		log.Println("api: no .env file, using environment variables")
+	}
 
-	server := server.NewServer()
+	awsCfg, err := awscloud.LoadFromEnv()
+	if err != nil {
+		log.Fatalf("api: aws config: %v", err)
+	}
 
-	// Create a done channel to signal when the shutdown is complete
+	sdkCfg, err := awscloud.NewAWSConfig(context.Background(), awsCfg)
+	if err != nil {
+		log.Fatalf("api: build aws sdk config: %v", err)
+	}
+
+	pub := snspublisher.New(sdkCfg, awsCfg.TopicARN)
+	log.Printf("api: SNS publisher ready, topic=%s", awsCfg.TopicARN)
+
+	srv := server.NewServer(pub)
+
 	done := make(chan bool, 1)
+	go gracefulShutdown(srv, done)
 
-	// Run graceful shutdown in a separate goroutine
-	go gracefulShutdown(server, done)
-
-	err := server.ListenAndServe()
+	err = srv.ListenAndServe()
 	if err != nil && err != http.ErrServerClosed {
 		panic(fmt.Sprintf("http server error: %s", err))
 	}
 
-	// Wait for the graceful shutdown to complete
 	<-done
 	log.Println("Graceful shutdown complete.")
 }

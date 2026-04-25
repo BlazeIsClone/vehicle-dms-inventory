@@ -9,21 +9,22 @@ import (
 
 	_ "github.com/joho/godotenv/autoload"
 
+	"github.com/blazeisclone/vehicle-dms-inventory/events"
 	"github.com/blazeisclone/vehicle-dms-inventory/internal/database"
 )
 
 type Server struct {
-	port int
-
-	db database.Service
+	port      int
+	db        database.Service
+	publisher events.Publisher
 }
 
-func NewServer() *http.Server {
+func NewServer(pub events.Publisher) *http.Server {
 	port, _ := strconv.Atoi(os.Getenv("PORT"))
 	NewServer := &Server{
-		port: port,
-
-		db: database.New(),
+		port:      port,
+		db:        database.New(),
+		publisher: pub,
 	}
 
 	// Declare Server config

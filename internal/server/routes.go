@@ -13,7 +13,7 @@ func (s *Server) RegisterRoutes() http.Handler {
 
 	mux.HandleFunc("/health", s.healthHandler)
 
-	vehicle.Routes(mux, vehicle.NewVehicleSvc(vehicle.NewPgSQLVehicleRepo(s.db.DB())))
+	vehicle.Routes(mux, vehicle.NewVehicleSvc(vehicle.NewPgSQLVehicleRepo(s.db.DB()), s.publisher))
 
 	return s.corsMiddleware(mux)
 }
