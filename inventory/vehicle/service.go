@@ -2,79 +2,126 @@ package vehicle
 
 import (
 	"context"
+	"database/sql"
 	"fmt"
-	"log"
-	"strconv"
-	"time"
 
-	"github.com/google/uuid"
-
-	"github.com/blazeisclone/vehicle-dms-inventory/events"
+	"github.com/blazeisclone/vehicle-dms-inventory/internal/outbox"
 )
 
 type Service struct {
-	repo VehicleRepo
-	pub  events.Publisher
+	db     *sql.DB
+	repo   VehicleRepo
+	outbox *outbox.Store
 }
 
-func NewVehicleSvc(repo VehicleRepo, pub events.Publisher) *Service {
-	return &Service{repo: repo, pub: pub}
+func NewVehicleSvc(db *sql.DB, repo VehicleRepo, store *outbox.Store) *Service {
+	return &Service{db: db, repo: repo, outbox: store}
 }
 
-func (svc *Service) Create(cmd CreateVehicleCommand) (*Vehicle, error) {
+func (svc *Service) Create(ctx context.Context, cmd CreateVehicleCommand) (*Vehicle, error) {
 	vehicle := &Vehicle{Name: cmd.Name, Description: cmd.Description}
 
-	if err := svc.repo.Create(vehicle); err != nil {
+	tx, err := svc.db.BeginTx(ctx, nil)
+	if err != nil {
+		return nil, fmt.Errorf("create vehicle: begin tx: %w", err)
+	}
+
+	if err := svc.repo.Create(ctx, tx, vehicle); err != nil {
+		tx.Rollback()
 		return nil, fmt.Errorf("create vehicle: %w", err)
 	}
 
-	svc.publishEvent(events.VehicleCreated, vehicle.ID, vehicle)
+	vehicle.raise(VehicleCreated, VehicleCreatedPayload{
+		ID:          vehicle.ID,
+		Name:        vehicle.Name,
+		Description: vehicle.Description,
+	})
+
+	if err := svc.flushEvents(ctx, tx, vehicle); err != nil {
+		tx.Rollback()
+		return nil, err
+	}
+
+	if err := tx.Commit(); err != nil {
+		return nil, fmt.Errorf("create vehicle: commit: %w", err)
+	}
+
 	return vehicle, nil
 }
 
-func (svc *Service) GetAll() ([]Vehicle, error) {
-	return svc.repo.GetAll()
+func (svc *Service) GetAll(ctx context.Context) ([]Vehicle, error) {
+	return svc.repo.GetAll(ctx)
 }
 
-func (svc *Service) FindByID(id int) (*Vehicle, error) {
-	return svc.repo.FindByID(id)
+func (svc *Service) FindByID(ctx context.Context, id int) (*Vehicle, error) {
+	return svc.repo.FindByID(ctx, id)
 }
 
-func (svc *Service) Update(id int, cmd UpdateVehicleCommand) (*Vehicle, error) {
+func (svc *Service) Update(ctx context.Context, id int, cmd UpdateVehicleCommand) (*Vehicle, error) {
 	vehicle := &Vehicle{Name: cmd.Name, Description: cmd.Description}
 
-	if err := svc.repo.UpdateByID(id, vehicle); err != nil {
+	tx, err := svc.db.BeginTx(ctx, nil)
+	if err != nil {
+		return nil, fmt.Errorf("update vehicle: begin tx: %w", err)
+	}
+
+	if err := svc.repo.UpdateByID(ctx, tx, id, vehicle); err != nil {
+		tx.Rollback()
 		return nil, fmt.Errorf("update vehicle: %w", err)
 	}
 
-	svc.publishEvent(events.VehicleUpdated, id, vehicle)
+	vehicle.raise(VehicleUpdated, VehicleUpdatedPayload{
+		ID:          vehicle.ID,
+		Name:        vehicle.Name,
+		Description: vehicle.Description,
+	})
+
+	if err := svc.flushEvents(ctx, tx, vehicle); err != nil {
+		tx.Rollback()
+		return nil, err
+	}
+
+	if err := tx.Commit(); err != nil {
+		return nil, fmt.Errorf("update vehicle: commit: %w", err)
+	}
+
 	return vehicle, nil
 }
 
-func (svc *Service) Delete(id int) error {
-	if err := svc.repo.DeleteByID(id); err != nil {
+func (svc *Service) Delete(ctx context.Context, id int) error {
+	tx, err := svc.db.BeginTx(ctx, nil)
+	if err != nil {
+		return fmt.Errorf("delete vehicle: begin tx: %w", err)
+	}
+
+	if err := svc.repo.DeleteByID(ctx, tx, id); err != nil {
+		tx.Rollback()
+		return fmt.Errorf("delete vehicle: %w", err)
+	}
+
+	vehicle := &Vehicle{ID: id}
+	vehicle.raise(VehicleDeleted, VehicleDeletedPayload{ID: id})
+
+	if err := svc.flushEvents(ctx, tx, vehicle); err != nil {
+		tx.Rollback()
 		return err
 	}
 
-	svc.publishEvent(events.VehicleDeleted, id, map[string]int{"id": id})
+	if err := tx.Commit(); err != nil {
+		return fmt.Errorf("delete vehicle: commit: %w", err)
+	}
+
 	return nil
 }
 
-// publishEvent is best-effort: publish failures are logged but do not fail the
-// primary operation. The DB write is the source of truth. context.Background()
-// is used so HTTP request cancellation does not abort an in-flight publish that
-// follows a successful DB write.
-func (svc *Service) publishEvent(eventType events.EventType, aggregateID int, payload any) {
-	event := events.DomainEvent{
-		ID:          uuid.NewString(),
-		Type:        eventType,
-		AggregateID: strconv.Itoa(aggregateID),
-		Payload:     payload,
-		OccurredAt:  time.Now().UTC(),
-		Version:     events.SchemaVersion,
+// flushEvents saves all pending domain events from the aggregate to the outbox
+// within the active transaction, then clears them from the aggregate.
+func (svc *Service) flushEvents(ctx context.Context, tx *sql.Tx, vehicle *Vehicle) error {
+	for _, e := range vehicle.DomainEvents() {
+		if err := svc.outbox.Save(ctx, tx, e); err != nil {
+			return fmt.Errorf("save domain event: %w", err)
+		}
 	}
-
-	if err := svc.pub.Publish(context.Background(), event); err != nil {
-		log.Printf("vehicle service: publish %s event: %v", eventType, err)
-	}
+	vehicle.ClearEvents()
+	return nil
 }

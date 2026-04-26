@@ -9,32 +9,23 @@ import (
 
 	_ "github.com/joho/godotenv/autoload"
 
-	"github.com/blazeisclone/vehicle-dms-inventory/events"
 	"github.com/blazeisclone/vehicle-dms-inventory/internal/database"
 )
 
 type Server struct {
-	port      int
-	db        database.Service
-	publisher events.Publisher
+	port int
+	db   database.Service
 }
 
-func NewServer(pub events.Publisher) *http.Server {
+func NewServer(db database.Service) *http.Server {
 	port, _ := strconv.Atoi(os.Getenv("PORT"))
-	NewServer := &Server{
-		port:      port,
-		db:        database.New(),
-		publisher: pub,
-	}
+	s := &Server{port: port, db: db}
 
-	// Declare Server config
-	server := &http.Server{
-		Addr:         fmt.Sprintf(":%d", NewServer.port),
-		Handler:      NewServer.RegisterRoutes(),
+	return &http.Server{
+		Addr:         fmt.Sprintf(":%d", s.port),
+		Handler:      s.RegisterRoutes(),
 		IdleTimeout:  time.Minute,
 		ReadTimeout:  10 * time.Second,
 		WriteTimeout: 30 * time.Second,
 	}
-
-	return server
 }

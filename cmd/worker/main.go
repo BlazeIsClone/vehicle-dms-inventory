@@ -9,6 +9,9 @@ import (
 	"github.com/joho/godotenv"
 
 	"github.com/blazeisclone/vehicle-dms-inventory/internal/awscloud"
+	"github.com/blazeisclone/vehicle-dms-inventory/internal/database"
+	"github.com/blazeisclone/vehicle-dms-inventory/internal/outbox"
+	"github.com/blazeisclone/vehicle-dms-inventory/inventory/vehicle"
 	"github.com/blazeisclone/vehicle-dms-inventory/worker"
 )
 
@@ -36,8 +39,15 @@ func main() {
 	}
 	log.Printf("worker: topic=%s queue=%s", topicARN, queueURL)
 
-	c := worker.NewConsumer(sdkCfg, queueURL)
-	for eventType, fn := range worker.VehicleEventHandlers() {
+	db := database.New()
+	processed := outbox.NewProcessedStore(db.DB())
+
+	c, err := worker.NewConsumer(sdkCfg, queueURL, processed)
+	if err != nil {
+		log.Fatalf("worker: init consumer: %v", err)
+	}
+
+	for eventType, fn := range vehicle.EventHandlers() {
 		c.Register(eventType, fn)
 	}
 

@@ -1,6 +1,7 @@
 package vehicle
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"net/http"
@@ -11,11 +12,11 @@ import (
 )
 
 type VehicleService interface {
-	Create(cmd CreateVehicleCommand) (*Vehicle, error)
-	GetAll() ([]Vehicle, error)
-	FindByID(id int) (*Vehicle, error)
-	Update(id int, cmd UpdateVehicleCommand) (*Vehicle, error)
-	Delete(id int) error
+	Create(ctx context.Context, cmd CreateVehicleCommand) (*Vehicle, error)
+	GetAll(ctx context.Context) ([]Vehicle, error)
+	FindByID(ctx context.Context, id int) (*Vehicle, error)
+	Update(ctx context.Context, id int, cmd UpdateVehicleCommand) (*Vehicle, error)
+	Delete(ctx context.Context, id int) error
 }
 
 type Handler struct {
@@ -37,7 +38,7 @@ func Routes(mux *http.ServeMux, svc VehicleService) {
 }
 
 func (h *Handler) Index(w http.ResponseWriter, r *http.Request) {
-	vehicles, err := h.svc.GetAll()
+	vehicles, err := h.svc.GetAll(r.Context())
 
 	if err != nil {
 		jsonError(w, "failed to fetch vehicles", http.StatusInternalServerError)
@@ -64,7 +65,7 @@ func (h *Handler) Store(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	vehicle, err := h.svc.Create(CreateVehicleCommand{
+	vehicle, err := h.svc.Create(r.Context(), CreateVehicleCommand{
 		Name:        strings.TrimSpace(req.Name),
 		Description: strings.TrimSpace(req.Description),
 	})
@@ -83,7 +84,7 @@ func (h *Handler) Show(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	vehicle, err := h.svc.FindByID(id)
+	vehicle, err := h.svc.FindByID(r.Context(), id)
 
 	if errors.Is(err, ErrNotFound) {
 		jsonError(w, "vehicle not found", http.StatusNotFound)
@@ -117,7 +118,7 @@ func (h *Handler) Update(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	vehicle, err := h.svc.Update(id, UpdateVehicleCommand{
+	vehicle, err := h.svc.Update(r.Context(), id, UpdateVehicleCommand{
 		Name:        strings.TrimSpace(req.Name),
 		Description: strings.TrimSpace(req.Description),
 	})
@@ -142,7 +143,7 @@ func (h *Handler) Destroy(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	err := h.svc.Delete(id)
+	err := h.svc.Delete(r.Context(), id)
 
 	if errors.Is(err, ErrNotFound) {
 		jsonError(w, "vehicle not found", http.StatusNotFound)

@@ -13,16 +13,19 @@ import (
 
 	snspublisher "github.com/blazeisclone/vehicle-dms-inventory/infra/sns"
 	"github.com/blazeisclone/vehicle-dms-inventory/internal/awscloud"
+	"github.com/blazeisclone/vehicle-dms-inventory/internal/database"
+	"github.com/blazeisclone/vehicle-dms-inventory/internal/outbox"
 	"github.com/blazeisclone/vehicle-dms-inventory/internal/server"
 )
 
-func gracefulShutdown(apiServer *http.Server, done chan bool) {
+func gracefulShutdown(apiServer *http.Server, cancelRelay context.CancelFunc, done chan bool) {
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer stop()
 
 	<-ctx.Done()
 
 	log.Println("shutting down gracefully, press Ctrl+C again to force")
+	cancelRelay()
 	stop()
 
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
@@ -32,7 +35,6 @@ func gracefulShutdown(apiServer *http.Server, done chan bool) {
 	}
 
 	log.Println("Server exiting")
-
 	done <- true
 }
 
@@ -51,13 +53,22 @@ func main() {
 		log.Fatalf("api: build aws sdk config: %v", err)
 	}
 
-	pub := snspublisher.New(sdkCfg, awsCfg.TopicARN)
+	pub, err := snspublisher.New(sdkCfg, awsCfg.TopicARN)
+	if err != nil {
+		log.Fatalf("api: SNS publisher: %v", err)
+	}
 	log.Printf("api: SNS publisher ready, topic=%s", awsCfg.TopicARN)
 
-	srv := server.NewServer(pub)
+	db := database.New()
+	relay := outbox.NewRelay(outbox.NewStore(db.DB()), pub)
+
+	relayCtx, cancelRelay := context.WithCancel(context.Background())
+	go relay.Run(relayCtx)
+
+	srv := server.NewServer(db)
 
 	done := make(chan bool, 1)
-	go gracefulShutdown(srv, done)
+	go gracefulShutdown(srv, cancelRelay, done)
 
 	err = srv.ListenAndServe()
 	if err != nil && err != http.ErrServerClosed {

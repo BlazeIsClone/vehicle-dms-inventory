@@ -7,3 +7,7 @@ import "context"
 type Publisher interface {
 	Publish(ctx context.Context, event DomainEvent) error
 }
+
+// HandlerFunc processes a single domain event. Return a non-nil error to nack
+// the message; it becomes visible again after the queue's visibility timeout.
+type HandlerFunc func(ctx context.Context, event DomainEvent) error
