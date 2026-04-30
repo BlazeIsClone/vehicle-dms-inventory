@@ -20,7 +20,7 @@ func NewStore(db *sql.DB) *Store {
 // The event will be published to SNS by the Relay once the transaction commits.
 func (s *Store) Save(ctx context.Context, tx *sql.Tx, event events.DomainEvent) error {
 	const query = `
-		INSERT INTO domain_events (id, event_type, aggregate_id, payload, occurred_at)
+		INSERT INTO outbox_events (id, event_type, aggregate_id, payload, occurred_at)
 		VALUES ($1, $2, $3, $4, $5)`
 
 	_, err := tx.ExecContext(ctx, query,
@@ -40,7 +40,7 @@ func (s *Store) Save(ctx context.Context, tx *sql.Tx, event events.DomainEvent) 
 func (s *Store) Pending(ctx context.Context) ([]events.DomainEvent, error) {
 	const query = `
 		SELECT id, event_type, aggregate_id, payload, occurred_at
-		FROM domain_events
+		FROM outbox_events
 		WHERE published_at IS NULL
 		ORDER BY created_at
 		LIMIT 100`
@@ -68,7 +68,7 @@ func (s *Store) Pending(ctx context.Context) ([]events.DomainEvent, error) {
 
 // MarkPublished stamps a domain event as delivered to SNS.
 func (s *Store) MarkPublished(ctx context.Context, eventID string) error {
-	const query = `UPDATE domain_events SET published_at = NOW() WHERE id = $1`
+	const query = `UPDATE outbox_events SET published_at = NOW() WHERE id = $1`
 	_, err := s.db.ExecContext(ctx, query, eventID)
 	return err
 }

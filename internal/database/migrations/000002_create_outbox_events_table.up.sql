@@ -1,4 +1,4 @@
-CREATE TABLE IF NOT EXISTS domain_events (
+CREATE TABLE IF NOT EXISTS outbox_events (
     id           UUID PRIMARY KEY,
     event_type   VARCHAR(255) NOT NULL,
     aggregate_id VARCHAR(255) NOT NULL,
@@ -8,4 +8,4 @@ CREATE TABLE IF NOT EXISTS domain_events (
     created_at   TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
-CREATE INDEX ON domain_events (published_at) WHERE published_at IS NULL;
+CREATE INDEX ON outbox_events (published_at) WHERE published_at IS NULL;
