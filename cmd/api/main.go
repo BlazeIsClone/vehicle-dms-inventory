@@ -11,8 +11,8 @@ import (
 
 	"github.com/joho/godotenv"
 
-	snspublisher "github.com/blazeisclone/vehicle-dms-inventory/infra/sns"
-	"github.com/blazeisclone/vehicle-dms-inventory/internal/awscloud"
+	"github.com/blazeisclone/vehicle-dms-inventory/infra/sns"
+	"github.com/blazeisclone/vehicle-dms-inventory/internal/aws"
 	"github.com/blazeisclone/vehicle-dms-inventory/internal/database"
 	"github.com/blazeisclone/vehicle-dms-inventory/internal/outbox"
 	"github.com/blazeisclone/vehicle-dms-inventory/internal/server"
@@ -43,17 +43,17 @@ func main() {
 		log.Println("api: no .env file, using environment variables")
 	}
 
-	awsCfg, err := awscloud.LoadFromEnv()
+	awsCfg, err := aws.LoadFromEnv()
 	if err != nil {
 		log.Fatalf("api: aws config: %v", err)
 	}
 
-	sdkCfg, err := awscloud.NewAWSConfig(context.Background(), awsCfg)
+	sdkCfg, err := aws.NewAWSConfig(context.Background(), awsCfg)
 	if err != nil {
 		log.Fatalf("api: build aws sdk config: %v", err)
 	}
 
-	pub, err := snspublisher.New(sdkCfg, awsCfg.TopicARN)
+	pub, err := sns.New(sdkCfg, awsCfg.TopicARN)
 	if err != nil {
 		log.Fatalf("api: SNS publisher: %v", err)
 	}

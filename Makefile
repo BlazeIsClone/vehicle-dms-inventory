@@ -1,15 +1,13 @@
-# Build the application
-all: build-all test
+SHELL=/bin/bash
 
-build:
-	@echo "Building API..."
-	@go build -o api cmd/api/main.go
+all: build test
 
-build-worker:
-	@echo "Building worker..."
-	@go build -o worker_bin cmd/worker/main.go
+bin:
+	@mkdir -p bin
 
-build-all: build build-worker
+build: bin
+	@go build -o bin/api cmd/api/main.go
+	@go build -o bin/worker cmd/worker/main.go
 
 run:
 	@go run cmd/api/main.go
@@ -41,7 +39,7 @@ localstack-down:
 # Clean the binary
 clean:
 	@echo "Cleaning..."
-	@rm -f api worker_bin
+	@rm -rf bin/
 
 # Live Reload
 watch:
@@ -50,4 +48,4 @@ watch:
 migrate:
 	@bash scripts/migrate.sh $(action)
 
-.PHONY: all build build-worker build-all run run-worker test clean watch docker-run docker-down itest localstack-up localstack-down
+.PHONY: all bin build run run-worker test clean watch docker-run docker-down itest localstack-up localstack-down

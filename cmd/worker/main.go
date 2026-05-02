@@ -8,11 +8,11 @@ import (
 
 	"github.com/joho/godotenv"
 
-	"github.com/blazeisclone/vehicle-dms-inventory/internal/awscloud"
+	"github.com/blazeisclone/vehicle-dms-inventory/infra/sqs"
+	"github.com/blazeisclone/vehicle-dms-inventory/internal/aws"
 	"github.com/blazeisclone/vehicle-dms-inventory/internal/database"
 	"github.com/blazeisclone/vehicle-dms-inventory/internal/outbox"
 	"github.com/blazeisclone/vehicle-dms-inventory/inventory/vehicle"
-	"github.com/blazeisclone/vehicle-dms-inventory/worker"
 )
 
 func main() {
@@ -20,7 +20,7 @@ func main() {
 		log.Println("worker: no .env file, using environment variables")
 	}
 
-	awsCfg, err := awscloud.LoadFromEnv()
+	awsCfg, err := aws.LoadFromEnv()
 	if err != nil {
 		log.Fatalf("worker: aws config: %v", err)
 	}
@@ -28,12 +28,12 @@ func main() {
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer stop()
 
-	sdkCfg, err := awscloud.NewAWSConfig(ctx, awsCfg)
+	sdkCfg, err := aws.NewAWSConfig(ctx, awsCfg)
 	if err != nil {
 		log.Fatalf("worker: build aws sdk config: %v", err)
 	}
 
-	topicARN, queueURL, err := awscloud.EnsureResources(ctx, sdkCfg)
+	topicARN, queueURL, err := aws.EnsureResources(ctx, sdkCfg)
 	if err != nil {
 		log.Fatalf("worker: init aws resources: %v", err)
 	}
@@ -42,7 +42,7 @@ func main() {
 	db := database.New()
 	processed := outbox.NewProcessedStore(db.DB())
 
-	c, err := worker.NewConsumer(sdkCfg, queueURL, processed)
+	c, err := sqs.NewConsumer(sdkCfg, queueURL, processed)
 	if err != nil {
 		log.Fatalf("worker: init consumer: %v", err)
 	}

@@ -1,4 +1,4 @@
-package worker
+package sqs
 
 import (
 	"context"
@@ -7,7 +7,7 @@ import (
 	"log"
 
 	"github.com/ThreeDotsLabs/watermill"
-	wmsqs "github.com/ThreeDotsLabs/watermill-aws/sqs"
+	"github.com/ThreeDotsLabs/watermill-aws/sqs"
 	"github.com/ThreeDotsLabs/watermill/message"
 	"github.com/aws/aws-sdk-go-v2/aws"
 
@@ -19,7 +19,7 @@ import (
 // message to the registered HandlerFunc for its event type.
 type Consumer struct {
 	router    *message.Router
-	sub       *wmsqs.Subscriber
+	sub       *sqs.Subscriber
 	queueURL  string
 	handlers  map[events.EventType]events.HandlerFunc
 	processed *outbox.ProcessedStore
@@ -29,9 +29,9 @@ type Consumer struct {
 func NewConsumer(awsCfg aws.Config, queueURL string, processed *outbox.ProcessedStore) (*Consumer, error) {
 	logger := watermill.NewStdLogger(false, false)
 
-	sub, err := wmsqs.NewSubscriber(wmsqs.SubscriberConfig{
+	sub, err := sqs.NewSubscriber(sqs.SubscriberConfig{
 		AWSConfig:                   awsCfg,
-		QueueUrlResolver:            wmsqs.TransparentUrlResolver{},
+		QueueUrlResolver:            sqs.TransparentUrlResolver{},
 		DoNotCreateQueueIfNotExists: true,
 	}, logger)
 	if err != nil {
