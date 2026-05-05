@@ -8,7 +8,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/blazeisclone/vehicle-dms-inventory/pkg/strutils"
+	"github.com/blazeisclone/vehicle-dms-inventory/pkg/api"
 )
 
 type VehicleService interface {
@@ -30,11 +30,11 @@ func NewHandler(svc VehicleService) *Handler {
 func Routes(mux *http.ServeMux, svc VehicleService) {
 	h := NewHandler(svc)
 
-	mux.HandleFunc("GET "+strutils.APIPath("v1", "/vehicles"), h.Index)
-	mux.HandleFunc("POST "+strutils.APIPath("v1", "/vehicles"), h.Store)
-	mux.HandleFunc("GET "+strutils.APIPath("v1", "/vehicles/{id}"), h.Show)
-	mux.HandleFunc("PUT "+strutils.APIPath("v1", "/vehicles/{id}"), h.Update)
-	mux.HandleFunc("DELETE "+strutils.APIPath("v1", "/vehicles/{id}"), h.Destroy)
+	mux.HandleFunc("GET "+api.Path("v1", "/vehicles"), h.Index)
+	mux.HandleFunc("POST "+api.Path("v1", "/vehicles"), h.Store)
+	mux.HandleFunc("GET "+api.Path("v1", "/vehicles/{id}"), h.Show)
+	mux.HandleFunc("PUT "+api.Path("v1", "/vehicles/{id}"), h.Update)
+	mux.HandleFunc("DELETE "+api.Path("v1", "/vehicles/{id}"), h.Destroy)
 }
 
 func (h *Handler) Index(w http.ResponseWriter, r *http.Request) {

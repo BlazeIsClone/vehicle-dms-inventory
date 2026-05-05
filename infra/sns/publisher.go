@@ -6,7 +6,7 @@ import (
 	"fmt"
 
 	"github.com/ThreeDotsLabs/watermill"
-	sns "github.com/ThreeDotsLabs/watermill-aws/sns"
+	"github.com/ThreeDotsLabs/watermill-aws/sns"
 	"github.com/ThreeDotsLabs/watermill/message"
 	"github.com/aws/aws-sdk-go-v2/aws"
 
